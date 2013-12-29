@@ -1,5 +1,9 @@
 Revision history for Perl extension Coteng
 
+0.05 2013-12-29T18:15:58Z
+
+    - Fix delete method bug.
+
 0.04 2013-12-29T16:58:01Z
 
     - Fix bug. don't work bulk_insert

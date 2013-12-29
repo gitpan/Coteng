@@ -3,7 +3,7 @@ use 5.008005;
 use strict;
 use warnings;
 
-our $VERSION = "0.04";
+our $VERSION = "0.05";
 our $DBI_CLASS = 'DBI';
 
 use Carp ();
@@ -206,7 +206,7 @@ sub delete {
     my ($self, $table, $where) = @_;
 
     my ($sql, @binds) = $self->sql_builder->delete($table, $where);
-    $self->execute($sql, \@binds);
+    $self->execute($sql, @binds);
 }
 
 sub last_insert_id {

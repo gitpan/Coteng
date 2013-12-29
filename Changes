@@ -1,6 +1,11 @@
 Revision history for Perl extension Coteng
 
+0.03 2013-12-29T09:35:12Z
+
+    - Add transaction support (DBIx::Sunny)
+
 0.02 2013-12-29T08:13:56Z
+
     - Add $DBI_CLASS
     - Remove root_dbi_class
 

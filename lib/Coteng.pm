@@ -3,11 +3,11 @@ use 5.008005;
 use strict;
 use warnings;
 
-our $VERSION = "0.02";
+our $VERSION = "0.03";
 our $DBI_CLASS = 'DBI';
 
 use Carp ();
-use Module::Load qw(load);
+use Module::Load ();
 use SQL::Maker;
 use Class::Accessor::Lite::Lazy (
     rw => [qw(
@@ -16,6 +16,7 @@ use Class::Accessor::Lite::Lazy (
     rw_lazy => [qw(
         sql_builder
     )],
+    new => 1
 );
 
 use Coteng::DBI;
@@ -24,14 +25,6 @@ use Coteng::DBI;
 sub _build_sql_builder {
     my ($self) = @_;
     return SQL::Maker->new(driver => $self->current_dbh->{Driver}{Name});
-}
-
-sub new {
-    my ($class, $args) = @_;
-    my $self = bless {
-        connect_info => $args->{connect_info} || undef,
-    }, $class;
-    return $self;
 }
 
 sub db {
@@ -50,9 +43,7 @@ sub dbh {
         my $user    = defined $db_info->{user}   ? $db_info->{user} : '';
         my $passwd  = defined $db_info->{passwd} ? $db_info->{passwd} : '';
 
-        if (! is_class_loaded($DBI_CLASS)) {
-            load $DBI_CLASS;
-        }
+        load_if_class_not_loaded($DBI_CLASS);
         my $dbh = $DBI_CLASS->connect($dsn, $user, $passwd, {
             RootClass => 'Coteng::DBI'
         });
@@ -65,7 +56,7 @@ sub single_by_sql {
 
     my $row = $self->current_dbh->select_row($sql, @$binds);
     if ($class) {
-        load $class;
+        load_if_class_not_loaded($class);
         $row = $class->new($row);
     }
     return $row;
@@ -82,7 +73,7 @@ sub search_by_sql {
     my ($self, $sql, $binds, $class) = @_;
     my $rows = $self->current_dbh->select_all($sql, @$binds);
     if ($class) {
-        load $class;
+        load_if_class_not_loaded($class);
         $rows = [ map { $class->new($_) } @$rows ];
     }
     return $rows;
@@ -218,6 +209,16 @@ sub delete {
     $self->execute($sql, \@binds);
 }
 
+sub last_insert_id {
+    my $self = shift;
+    $self->current_dbh->last_insert_id;
+}
+
+sub txn_scope {
+    my $self = shift;
+    $self->current_dbh->txn_scope;
+}
+
 sub _expand_args (@) {
     my ($class, $query, @args) = @_;
 
@@ -227,6 +228,13 @@ sub _expand_args (@) {
     }
 
     return ($query, @args);
+}
+
+sub load_if_class_not_loaded {
+    my $class = shift;
+    if (! is_class_loaded($class)) {
+        Module::Load::load $class;
+    }
 }
 
 # stolen from Mouse::PurePerl
@@ -360,7 +368,7 @@ Coteng is a lightweight L<Teng>, just as very simple DBI wrapper.
 Teng is a simple and good designed ORMapper, but it has a little complicated functions such as the row class, iterator class, the schema definition class (L<Teng::Row>, L<Teng::Iterator> and L<Teng::Schema>).
 Coteng doesn't have such functions and only has very similar Teng SQL interface.
 
-Coteng itself has no transaction and last_insert_id interface, thanks to L<DBIx::Sunny>.
+Coteng itself has no transaction and last_insert_id implementation, but has thir interface thanks to L<DBIx::Sunny>.
 (Coteng uses DBIx::Sunny as a base DB handler.)
 
 =head1 METHODS
@@ -538,6 +546,20 @@ execute your SQL
 =item C<$sth = $coteng-E<gt>execute($sql, [\@bind_values|@bind_values])>
 
 execute query and get statement handler.
+
+=item C<$id = $coteng-E<gt>last_insert_id()>
+
+Returns last_insert_id.
+
+=item C<$txn = $coteng-E<gt>txn_scope()>
+
+Returns DBIx::TransactionManager::ScopeGuard object
+
+    {
+        my $txn = $coteng->db('db_master')->txn_scope();
+        ...
+        $txn->commit;
+    }
 
 =back
 

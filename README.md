@@ -92,7 +92,7 @@ Coteng is a lightweight [Teng](http://search.cpan.org/perldoc?Teng), just as ver
 Teng is a simple and good designed ORMapper, but it has a little complicated functions such as the row class, iterator class, the schema definition class ([Teng::Row](http://search.cpan.org/perldoc?Teng::Row), [Teng::Iterator](http://search.cpan.org/perldoc?Teng::Iterator) and [Teng::Schema](http://search.cpan.org/perldoc?Teng::Schema)).
 Coteng doesn't have such functions and only has very similar Teng SQL interface.
 
-Coteng itself has no transaction and last\_insert\_id interface, thanks to [DBIx::Sunny](http://search.cpan.org/perldoc?DBIx::Sunny).
+Coteng itself has no transaction and last\_insert\_id implementation, but has thir interface thanks to [DBIx::Sunny](http://search.cpan.org/perldoc?DBIx::Sunny).
 (Coteng uses DBIx::Sunny as a base DB handler.)
 
 # METHODS
@@ -264,6 +264,20 @@ Coteng provides a number of methods to all your classes,
 - `$sth = $coteng->execute($sql, [\@bind_values|@bind_values])`
 
     execute query and get statement handler.
+
+- `$id = $coteng->last_insert_id()`
+
+    Returns last\_insert\_id.
+
+- `$txn = $coteng->txn_scope()`
+
+    Returns DBIx::TransactionManager::ScopeGuard object
+
+        {
+            my $txn = $coteng->db('db_master')->txn_scope();
+            ...
+            $txn->commit;
+        }
 
 # NOTE
 

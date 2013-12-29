@@ -64,7 +64,7 @@
    "provides" : {
       "Coteng" : {
          "file" : "lib/Coteng.pm",
-         "version" : "0.01"
+         "version" : "0.02"
       },
       "Coteng::DBI" : {
          "file" : "lib/Coteng/DBI.pm"
@@ -87,6 +87,6 @@
          "web" : "https://github.com/y-uuki/Coteng"
       }
    },
-   "version" : "0.01",
+   "version" : "0.02",
    "x_authority" : "cpan:YUUKI"
 }

@@ -1,5 +1,9 @@
 Revision history for Perl extension Coteng
 
+0.02 2013-12-29T08:13:56Z
+    - Add $DBI_CLASS
+    - Remove root_dbi_class
+
 0.01 2013-12-28T16:33:21Z
 
     - original version

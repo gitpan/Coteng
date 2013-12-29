@@ -3,10 +3,10 @@ use 5.008005;
 use strict;
 use warnings;
 
-our $VERSION = "0.01";
+our $VERSION = "0.02";
+our $DBI_CLASS = 'DBI';
 
 use Carp ();
-
 use Module::Load qw(load);
 use SQL::Maker;
 use Class::Accessor::Lite::Lazy (
@@ -20,6 +20,7 @@ use Class::Accessor::Lite::Lazy (
 
 use Coteng::DBI;
 
+
 sub _build_sql_builder {
     my ($self) = @_;
     return SQL::Maker->new(driver => $self->current_dbh->{Driver}{Name});
@@ -28,9 +29,7 @@ sub _build_sql_builder {
 sub new {
     my ($class, $args) = @_;
     my $self = bless {
-        connect_info    => $args->{connect_info}   || undef,
-        root_dbi_class  => $args->{root_dbi_class} || undef,
-        current_dbh     => undef,
+        connect_info => $args->{connect_info} || undef,
     }, $class;
     return $self;
 }
@@ -51,8 +50,11 @@ sub dbh {
         my $user    = defined $db_info->{user}   ? $db_info->{user} : '';
         my $passwd  = defined $db_info->{passwd} ? $db_info->{passwd} : '';
 
-        my $dbh = Coteng::DBI->connect($dsn, $user, $passwd, {
-            RootClass => $self->{root_dbi_class},
+        if (! is_class_loaded($DBI_CLASS)) {
+            load $DBI_CLASS;
+        }
+        my $dbh = $DBI_CLASS->connect($dsn, $user, $passwd, {
+            RootClass => 'Coteng::DBI'
         });
         $dbh;
     };
@@ -227,6 +229,41 @@ sub _expand_args (@) {
     return ($query, @args);
 }
 
+# stolen from Mouse::PurePerl
+sub is_class_loaded {
+    my $class = shift;
+
+    return 0 if ref($class) || !defined($class) || !length($class);
+
+    my $pack = \%::;
+
+    foreach my $part (split('::', $class)) {
+        $part .= '::';
+        return 0 if !exists $pack->{$part};
+
+        my $entry = \$pack->{$part};
+        return 0 if ref($entry) ne 'GLOB';
+        $pack = *{$entry}{HASH};
+    }
+
+    return 0 if !%{$pack};
+
+    # check for $VERSION or @ISA
+    return 1 if exists $pack->{VERSION}
+             && defined *{$pack->{VERSION}}{SCALAR} && defined ${ $pack->{VERSION} };
+    return 1 if exists $pack->{ISA}
+             && defined *{$pack->{ISA}}{ARRAY} && @{ $pack->{ISA} } != 0;
+
+    # check for any method
+    foreach my $name( keys %{$pack} ) {
+        my $entry = \$pack->{$name};
+        return 1 if ref($entry) ne 'GLOB' || defined *{$entry}{CODE};
+    }
+
+    # fail
+    return 0;
+}
+
 1;
 __END__
 
@@ -253,7 +290,6 @@ Coteng - Lightweight Teng
                 passwd  => 'nobody',
             },
         },
-        root_dbi_class => "Scope::Container::DBI",
     });
 
     my $inserted_host = $coteng->db('db_master')->insert(host => {
@@ -505,7 +541,21 @@ execute query and get statement handler.
 
 =back
 
-=head SEE ALSO
+=head1 NOTE
+
+=over
+
+=item USING DBI CLASSES
+
+default DBI CLASS is 'DBI'. You can change DBI CLASS via $Coteng::DBI_CLASS.
+
+    local $Coteng::DBI_CLASS = 'Scope::Container::DBI';
+    my $coteng = Coteng->new({ connect_info => ... });
+    $coteng->dbh('db_master')->insert(...);
+
+=back
+
+=head1 SEE ALSO
 
 =over
 

@@ -20,7 +20,6 @@ Coteng - Lightweight Teng
                 passwd  => 'nobody',
             },
         },
-        root_dbi_class => "Scope::Container::DBI",
     });
 
     my $inserted_host = $coteng->db('db_master')->insert(host => {
@@ -265,6 +264,18 @@ Coteng provides a number of methods to all your classes,
 - `$sth = $coteng->execute($sql, [\@bind_values|@bind_values])`
 
     execute query and get statement handler.
+
+# NOTE
+
+- USING DBI CLASSES
+
+    default DBI CLASS is 'DBI'. You can change DBI CLASS via $Coteng::DBI\_CLASS.
+
+        local $Coteng::DBI_CLASS = 'Scope::Container::DBI';
+        my $coteng = Coteng->new({ connect_info => ... });
+        $coteng->dbh('db_master')->insert(...);
+
+# SEE ALSO
 
 - [Teng](http://search.cpan.org/perldoc?Teng)
 - [DBIx::Sunny](http://search.cpan.org/perldoc?DBIx::Sunny)

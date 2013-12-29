@@ -30,7 +30,7 @@ no_index:
 provides:
   Coteng:
     file: lib/Coteng.pm
-    version: 0.03
+    version: 0.04
   Coteng::DBI:
     file: lib/Coteng/DBI.pm
     version: 0
@@ -39,6 +39,9 @@ provides:
     version: 0
   Coteng::DBI::st:
     file: lib/Coteng/DBI.pm
+    version: 0
+  Coteng::QueryBuilder:
+    file: lib/Coteng/QueryBuilder.pm
     version: 0
 requires:
   Class::Accessor::Lite::Lazy: 0
@@ -53,5 +56,5 @@ resources:
   bugtracker: https://github.com/y-uuki/Coteng/issues
   homepage: https://github.com/y-uuki/Coteng
   repository: git://github.com/y-uuki/Coteng.git
-version: 0.03
+version: 0.04
 x_authority: cpan:YUUKI

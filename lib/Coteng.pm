@@ -3,12 +3,11 @@ use 5.008005;
 use strict;
 use warnings;
 
-our $VERSION = "0.03";
+our $VERSION = "0.04";
 our $DBI_CLASS = 'DBI';
 
 use Carp ();
 use Module::Load ();
-use SQL::Maker;
 use Class::Accessor::Lite::Lazy (
     rw => [qw(
         current_dbh
@@ -20,11 +19,12 @@ use Class::Accessor::Lite::Lazy (
 );
 
 use Coteng::DBI;
+use Coteng::QueryBuilder;
 
 
 sub _build_sql_builder {
     my ($self) = @_;
-    return SQL::Maker->new(driver => $self->current_dbh->{Driver}{Name});
+    return Coteng::QueryBuilder->new(driver => $self->current_dbh->{Driver}{Name});
 }
 
 sub db {

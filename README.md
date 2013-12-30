@@ -22,6 +22,37 @@ Coteng - Lightweight Teng
         },
     });
 
+    # or
+
+    my $coteng = Coteng->new({
+        connect_info => {
+            db_master => [
+                'dbi:mysql:dbname=server;host=dbmasterhost', 'nobody', 'nobody', {
+                    PrintError => 0,
+                }
+            ],
+            db_slave => [
+                'dbi:mysql:dbname=server;host=dbslavehost', 'nobody', 'nobody',
+            ],
+        },
+    });
+
+    # or
+
+    use Coteng::DBI;
+
+    my $dbh1 = Coteng::DBI->connect('dbi:mysql:dbname=server;host=dbmasterhost', 'nobody', 'npbody');
+    my $dbh2 = Coteng::DBI->connect('dbi:mysql:dbname=server;host=dbslavehost', 'nobody', 'npbody');
+
+    my $coteng = Coteng->new({
+        dbh => {
+            db_master   => $dbh1,
+            db_slave    => $dbh2,
+        },
+    });
+
+
+
     my $inserted_host = $coteng->db('db_master')->insert(host => {
         name    => 'host001',
         ipv4    => '10.0.0.1',
@@ -110,6 +141,7 @@ Coteng provides a number of methods to all your classes,
                     dsn     => $dsn,
                     user    => $user,
                     passwd  => $passwd,
+                    attr    => \%attr,
                 },
             },
         });
@@ -126,10 +158,25 @@ Coteng provides a number of methods to all your classes,
                     dsn     => $dsn,
                     user    => $user,
                     passwd  => $passwd,
+                    attr    => \%attr,
                 },
             },
 
+        or a array referece in the form
+
+            {
+                dbname => [ $dsn, $user, $passwd, \%attr ],
+            },
+
         'dbname' is something you like to identify a database type such as 'db\_master', 'db\_slave', 'db\_batch'.
+
+    - `dbh`
+
+        Passes the dbh object.
+
+            {
+                dbname => $dbh,
+            },
 
 - `$row = $coteng->db($dbname)`
 
@@ -211,7 +258,7 @@ Coteng provides a number of methods to all your classes,
 
 - `$row = $teng->single($table_name, \%search_condition, \%search_attr, [$class])`
 
-    Returns (hash references or $class objects).
+    Returns (hash references or $class objects) or empty string ('') if sql result is empty
 
         my $row = $coteng->single(host => { id => 1 }, 'Your::Model::Host');
 
@@ -219,25 +266,28 @@ Coteng provides a number of methods to all your classes,
 
 - `$rows = $coteng->search($table_name, [\%search_condition, [\%search_attr]], [$class])`
 
-    Returns array reference of (hash references or $class objects).
+    Returns array reference of (hash references or $class objects) or empty array reference (\[\]) if sql result is empty.
 
         my $rows = $coteng->db('db_slave')->search(host => {id => 1}, {order_by => 'id'}, 'Your::Model::Host');
 
 - `$row = $teng->single_named($sql, [\%bind_values], [$class])`
 
-    get one record from execute named query
+    Gets one record from execute named query
+    Returns empty string ( '' ) if sql result is empty.
 
         my $row = $coteng->dbh('db_slave')->single_named(q{SELECT id,name FROM host WHERE id = :id LIMIT 1}, {id => 1}, 'Your::Model::Host');
 
 - `$row = $coteng->single_by_sql($sql, [\@bind_values], $class)`
 
-    get one record from your SQL.
+    Gets one record from your SQL.
+    Returns empty string ('') if sql result is empty.
 
         my $row = $coteng->single_by_sql(q{SELECT id,name FROM user WHERE id = ? LIMIT 1}, [1], 'user');
 
 - `$rows = $coteng->search_named($sql, [\%bind_values], [$class])`
 
-    execute named query
+    Execute named query
+    Returns empty array reference (\[\]) if sql result is empty.
 
         my $itr = $coteng->db('db_slave')->search_named(q[SELECT * FROM user WHERE id = :id], {id => 1}, 'Your::Model::Host');
 
@@ -246,13 +296,14 @@ Coteng provides a number of methods to all your classes,
 
         # SELECT * FROM user WHERE id IN (?,?,?);
         # bind [1,2,3]
-        my $rows = $coteng->dbh('db_slave')->search_named(q[SELECT * FROM user WHERE id IN :ids], {ids => [1, 2, 3]}, 'Your::Model::Host');
+        my $rows = $coteng->db('db_slave')->search_named(q[SELECT * FROM user WHERE id IN :ids], {ids => [1, 2, 3]}, 'Your::Model::Host');
 
 - `$rows = $coteng->search_by_sql($sql, [\@bind_values], [$class])`
 
-    execute your SQL
+    Execute your SQL.
+    Returns empty array reference (\[\]) if sql result is empty.
 
-        my $rows = $coteng->dbh('db_slave')->search_by_sql(q{
+        my $rows = $coteng->db('db_slave')->search_by_sql(q{
             SELECT
                 id, name
             FROM
@@ -260,6 +311,15 @@ Coteng provides a number of methods to all your classes,
             WHERE
                 id = ?
         }, [ 1 ]);
+
+- `$count = $coteng->count($table, [$table[, $column[, $where[, $opt]]])`
+
+    Execute count SQL.
+    Returns record counts.
+
+        my $count = $coteng->dbh(host, '*', {
+            status => 'working',
+        });
 
 - `$sth = $coteng->execute($sql, [\@bind_values|@bind_values])`
 

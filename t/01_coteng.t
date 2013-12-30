@@ -4,6 +4,8 @@ use warnings;
 use t::cotengtest;
 use Test::More;
 
+use DBIx::Sunny;
+
 subtest use => sub {
     use_ok "Coteng";
 };
@@ -40,6 +42,7 @@ subtest new => sub {
 };
 
 subtest db => sub {
+
     my $coteng = Coteng->new({
         connect_info => {
             db_master => {
@@ -52,25 +55,56 @@ subtest db => sub {
     });
 
     isa_ok $coteng->db('db_master'), 'Coteng';
-    is $coteng->current_dbh, $coteng->{_dbh}{db_master};
+    is $coteng->current_dbh, $coteng->{dbh}{db_master};
 
     isa_ok $coteng->db('db_slave'),  'Coteng';
-    is $coteng->current_dbh, $coteng->{_dbh}{db_slave};
+    is $coteng->current_dbh, $coteng->{dbh}{db_slave};
+
 };
 
 subtest dbh => sub {
-    my $coteng = Coteng->new({
-        connect_info => {
-            db_master => {
-                dsn => 'dbi:SQLite::memory:',
+
+    subtest 'hash reference' => sub {
+        my $coteng = Coteng->new({
+            connect_info => {
+                db_master => {
+                    dsn => 'dbi:SQLite::memory:',
+                },
+                db_slave => {
+                    dsn => 'dbi:SQLite::memory:',
+                },
             },
-            db_slave => {
-                dsn => 'dbi:SQLite::memory:',
+        });
+        isa_ok $coteng->dbh('db_master'), 'Coteng::DBI::db';
+        isa_ok $coteng->dbh('db_slave'),  'Coteng::DBI::db';
+    };
+
+    subtest 'array reference' => sub {
+        my $coteng = Coteng->new({
+            connect_info => {
+                db_master   => [ 'dbi:SQLite::memory:' ],
+                db_slave    => [ 'dbi:SQLite::memory:' ],
             },
-        },
-    });
-    isa_ok $coteng->dbh('db_master'), 'Coteng::DBI::db';
-    isa_ok $coteng->dbh('db_slave'),  'Coteng::DBI::db';
+        });
+        isa_ok $coteng->dbh('db_master'), 'Coteng::DBI::db';
+        isa_ok $coteng->dbh('db_slave'),  'Coteng::DBI::db';
+    };
+
+    subtest 'dbh' => sub {
+        my $dbh1 = DBIx::Sunny->connect('dbi:SQLite::memory:');
+        my $dbh2 = DBIx::Sunny->connect('dbi:SQLite::memory:');
+
+        my $coteng = Coteng->new({
+            dbh => {
+                db_master   => $dbh1,
+                db_slave    => $dbh2,
+            },
+        });
+
+        is $coteng->dbh('db_master'), $dbh1;
+        is $coteng->dbh('db_slave'),  $dbh2;
+    };
+
 };
 
 
@@ -350,6 +384,24 @@ subtest search_by_sql => sub {
         ], [ 1000000 ], "Coteng::Model::Mock");
 
         is_deeply $rows, [];
+    };
+};
+
+subtest count => sub {
+    subtest 'when return value is not empty' => sub {
+        my $id1 = $coteng->fast_insert(mock => {
+            name => "mock20",
+            delete_fg => 1,
+        });
+        my $id2 = $coteng->fast_insert(mock => {
+            name => "mock21",
+            delete_fg => 1,
+        });
+        my $cnt = $coteng->count('mock', '*', {
+            delete_fg => 1,
+        });
+
+        is $cnt, 2;
     };
 };
 

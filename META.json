@@ -4,7 +4,7 @@
       "y_uuki <yuki.tsubo@gmail.com>"
    ],
    "dynamic_config" : 0,
-   "generated_by" : "Minilla/v0.8.0",
+   "generated_by" : "Minilla/v0.11.0",
    "license" : [
       "perl_5"
    ],
@@ -64,7 +64,7 @@
    "provides" : {
       "Coteng" : {
          "file" : "lib/Coteng.pm",
-         "version" : "0.06"
+         "version" : "0.07"
       },
       "Coteng::DBI" : {
          "file" : "lib/Coteng/DBI.pm"
@@ -90,6 +90,6 @@
          "web" : "https://github.com/y-uuki/Coteng"
       }
    },
-   "version" : "0.06",
+   "version" : "0.07",
    "x_authority" : "cpan:YUUKI"
 }

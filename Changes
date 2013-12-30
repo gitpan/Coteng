@@ -1,5 +1,11 @@
 Revision history for Perl extension Coteng
 
+0.07 2013-12-30T11:00:18Z
+
+    - Add Coteng#new to DBI->connect format param
+    - Add Coteng#new to dbh param
+    - Add Coteng#count
+
 0.06 2013-12-29T19:54:58Z
 
     - Fix return value of selecter methods (single, search, single_named, search_named, single_by_sql, search_by_sql)

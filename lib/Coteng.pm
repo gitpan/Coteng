@@ -3,11 +3,12 @@ use 5.008005;
 use strict;
 use warnings;
 
-our $VERSION = "0.07";
+our $VERSION = "0.08";
 our $DBI_CLASS = 'DBI';
 
 use Carp ();
 use Module::Load ();
+use SQL::NamedPlaceholder ();
 use Class::Accessor::Lite::Lazy (
     rw => [qw(
         current_dbh

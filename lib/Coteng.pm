@@ -3,7 +3,7 @@ use 5.008005;
 use strict;
 use warnings;
 
-our $VERSION = "0.08";
+our $VERSION = "0.09";
 our $DBI_CLASS = 'DBI';
 
 use Carp ();
@@ -11,7 +11,8 @@ use Module::Load ();
 use SQL::NamedPlaceholder ();
 use Class::Accessor::Lite::Lazy (
     rw => [qw(
-        current_dbh
+        dbh
+        current_dbname
         connect_info
     )],
     rw_lazy => [qw(
@@ -27,48 +28,47 @@ use Coteng::QueryBuilder;
 sub db {
     my ($self, $dbname) = @_;
     $dbname or Carp::croak "dbname required";
-    $self->current_dbh($self->dbh($dbname));
+    $self->current_dbname($dbname);
+    $self->dbh($dbname);
     $self;
 }
 
 sub dbh {
     my ($self, $dbname) = @_;
-    $dbname or Carp::croak "dbname required";
+    $dbname ||= $self->current_dbname or Carp::croak 'dbname or current_dbname required';
 
-    $self->{dbh}{$dbname} ||= do {
-        my $db_info = $self->{connect_info}->{$dbname} || Carp::croak "'$dbname' doesn't exist";
+    my $db_info = $self->{connect_info}->{$dbname} || Carp::croak "'$dbname' doesn't exist";
 
-        my ($dsn, $user, $passwd, $attr) = ('', '', '', {});
-        if (ref($db_info) eq 'HASH') {
-            $dsn    = $db_info->{dsn} || Carp::croak "dsn required";
-            $user   = defined $db_info->{user}   ? $db_info->{user} : '';
-            $passwd = defined $db_info->{passwd} ? $db_info->{passwd} : '';
-            $attr   = $db_info->{attr};
-        }
-        elsif (ref($db_info) eq 'ARRAY') {
-            ($dsn, $user, $passwd, $attr) = @$db_info;
-        }
-        else {
-            Carp::croak 'connect_info->{$dbname} must be HASHref, or ARRAYref';
-        }
+    my ($dsn, $user, $passwd, $attr) = ('', '', '', {});
+    if (ref($db_info) eq 'HASH') {
+        $dsn    = $db_info->{dsn} || Carp::croak "dsn required";
+        $user   = defined $db_info->{user}   ? $db_info->{user} : '';
+        $passwd = defined $db_info->{passwd} ? $db_info->{passwd} : '';
+        $attr   = $db_info->{attr};
+    }
+    elsif (ref($db_info) eq 'ARRAY') {
+        ($dsn, $user, $passwd, $attr) = @$db_info;
+    }
+    else {
+        Carp::croak 'connect_info->{$dbname} must be HASHref, or ARRAYref';
+    }
 
-        load_if_class_not_loaded($DBI_CLASS);
+    load_if_class_not_loaded($DBI_CLASS);
 
-        $attr->{RootClass} ||= 'Coteng::DBI';
-        my $dbh = $DBI_CLASS->connect($dsn, $user, $passwd, $attr);
-        $dbh;
-    };
+    $attr->{RootClass} ||= 'Coteng::DBI';
+    my $dbh = $DBI_CLASS->connect($dsn, $user, $passwd, $attr);
+    $dbh;
 }
 
 sub _build_sql_builder {
     my ($self) = @_;
-    return Coteng::QueryBuilder->new(driver => $self->current_dbh->{Driver}{Name});
+    return Coteng::QueryBuilder->new(driver => $self->dbh->{Driver}{Name});
 }
 
 sub single_by_sql {
     my ($self, $sql, $binds, $class) = @_;
 
-    my $row = $self->current_dbh->select_row($sql, @$binds) || '';
+    my $row = $self->dbh->select_row($sql, @$binds) || '';
     if ($class && $row) {
         load_if_class_not_loaded($class);
         $row = $class->new($row);
@@ -85,7 +85,7 @@ sub single_named {
 
 sub search_by_sql {
     my ($self, $sql, $binds, $class) = @_;
-    my $rows = $self->current_dbh->select_all($sql, @$binds) || [];
+    my $rows = $self->dbh->select_all($sql, @$binds) || [];
     if ($class && @$rows) {
         load_if_class_not_loaded($class);
         $rows = [ map { $class->new($_) } @$rows ];
@@ -102,7 +102,7 @@ sub search_named {
 
 sub execute {
     my $self = shift;
-    my $db = $self->current_dbh->query($self->_expand_args(@_));
+    my $db = $self->dbh->query($self->_expand_args(@_));
 }
 
 sub single {
@@ -164,7 +164,7 @@ sub fast_insert {
         { prefix => $prefix },
     );
     $self->execute($sql, @binds);
-    return $self->current_dbh->last_insert_id($table);
+    return $self->dbh->last_insert_id($table);
 }
 
 sub insert {
@@ -193,7 +193,7 @@ sub bulk_insert {
 
     return undef unless scalar(@{$args || []});
 
-    my $dbh = $self->current_dbh;
+    my $dbh = $self->dbh;
     my $can_multi_insert = $dbh->{Driver}{Name} eq 'mysql' ? 1 : 0;
 
     if ($can_multi_insert) {
@@ -234,18 +234,18 @@ sub count {
 
     my ($sql, @binds) = $self->sql_builder->select($table, [\"COUNT($column)"], $where, $opt);
 
-    my ($cnt) = $self->current_dbh->select_one($sql, @binds);
+    my ($cnt) = $self->dbh->select_one($sql, @binds);
     $cnt;
 }
 
 sub last_insert_id {
     my $self = shift;
-    $self->current_dbh->last_insert_id;
+    $self->dbh->last_insert_id;
 }
 
 sub txn_scope {
     my $self = shift;
-    $self->current_dbh->txn_scope;
+    $self->dbh->txn_scope;
 }
 
 sub _expand_args (@) {
@@ -478,19 +478,9 @@ or a array referece in the form
 
 'dbname' is something you like to identify a database type such as 'db_master', 'db_slave', 'db_batch'.
 
-=item * C<dbh>
-
-Passes the dbh object.
-
-    {
-        dbname => $dbh,
-    },
-
-=back
-
 =item C<$row = $coteng-E<gt>db($dbname)>
 
-Set internal current dbh object by $dbname registered in 'new' method.
+Set internal current db by $dbname registered in 'new' method.
 Returns Coteng object ($self) to enable you to use method chain like below.
 
     my $row = $coteng->db('db_master')->insert();
@@ -570,9 +560,9 @@ Deletes the specified record(s) from C<$table> and returns the number of rows de
 
 Returns (hash references or $class objects) or empty string ('') if sql result is empty
 
-    my $row = $coteng->single(host => { id => 1 }, 'Your::Model::Host');
+    my $row = $coteng->db('db_slave')->single(host => { id => 1 }, 'Your::Model::Host');
 
-    my $row = $coteng->single(host => { id => 1 }, { columns => [qw(id name)] });
+    my $row = $coteng->db('db_slave')->single(host => { id => 1 }, { columns => [qw(id name)] });
 
 =item C<$rows = $coteng-E<gt>search($table_name, [\%search_condition, [\%search_attr]], [$class])>
 
@@ -585,14 +575,14 @@ Returns array reference of (hash references or $class objects) or empty array re
 Gets one record from execute named query
 Returns empty string ( '' ) if sql result is empty.
 
-    my $row = $coteng->dbh('db_slave')->single_named(q{SELECT id,name FROM host WHERE id = :id LIMIT 1}, {id => 1}, 'Your::Model::Host');
+    my $row = $coteng->db('db_slave')->single_named(q{SELECT id,name FROM host WHERE id = :id LIMIT 1}, {id => 1}, 'Your::Model::Host');
 
 =item C<$row = $coteng-E<gt>single_by_sql($sql, [\@bind_values], $class)>
 
 Gets one record from your SQL.
 Returns empty string ('') if sql result is empty.
 
-    my $row = $coteng->single_by_sql(q{SELECT id,name FROM user WHERE id = ? LIMIT 1}, [1], 'user');
+    my $row = $coteng->db('db_slave')->single_by_sql(q{SELECT id,name FROM user WHERE id = ? LIMIT 1}, [1], 'user');
 
 =item C<$rows = $coteng-E<gt>search_named($sql, [\%bind_values], [$class])>
 
@@ -627,7 +617,7 @@ Returns empty array reference ([]) if sql result is empty.
 Execute count SQL.
 Returns record counts.
 
-    my $count = $coteng->dbh(host, '*', {
+    my $count = $coteng->count(host, '*', {
         status => 'working',
     });
 

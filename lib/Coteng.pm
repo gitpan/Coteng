@@ -3,11 +3,13 @@ use 5.008005;
 use strict;
 use warnings;
 
-our $VERSION = "0.09";
-our $DBI_CLASS = 'DBI';
+our $VERSION = "0.10";
+our $DBI_CLASS = 'Coteng::DBI';
 
 use Carp ();
 use Module::Load ();
+use Scope::Container;
+use Scope::Container::DBI;
 use SQL::NamedPlaceholder ();
 use Class::Accessor::Lite::Lazy (
     rw => [qw(
@@ -55,8 +57,13 @@ sub dbh {
 
     load_if_class_not_loaded($DBI_CLASS);
 
-    $attr->{RootClass} ||= 'Coteng::DBI';
-    my $dbh = $DBI_CLASS->connect($dsn, $user, $passwd, $attr);
+    unless (in_scope_container) {
+        # define $CONTEXT forcelly to enable Scope::Container::DBI cache
+        $self->{_dbh_container_dummy} = start_scope_container();
+    }
+
+    $attr->{RootClass} ||= $DBI_CLASS;
+    my $dbh = Scope::Container::DBI->connect($dsn, $user, $passwd, $attr);
     $dbh;
 }
 
@@ -102,7 +109,7 @@ sub search_named {
 
 sub execute {
     my $self = shift;
-    my $db = $self->dbh->query($self->_expand_args(@_));
+    $self->dbh->query($self->_expand_args(@_));
 }
 
 sub single {
@@ -647,9 +654,10 @@ Returns DBIx::TransactionManager::ScopeGuard object
 
 =item USING DBI CLASSES
 
-default DBI CLASS is 'DBI'. You can change DBI CLASS via $Coteng::DBI_CLASS.
+default DBI CLASS is 'Coteng::DBI' (Coteng::DBI's parent is DBIx::Sunny). You can change DBI CLASS via $Coteng::DBI_CLASS.
+'Your::DBI' class should be followed by DBIx::Sunny interface.
 
-    local $Coteng::DBI_CLASS = 'Scope::Container::DBI';
+    local $Coteng::DBI_CLASS = 'Your::DBI';
     my $coteng = Coteng->new({ connect_info => ... });
     $coteng->dbh('db_master')->insert(...);
 
